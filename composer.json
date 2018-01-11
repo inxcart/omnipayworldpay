@@ -1,0 +1,11 @@
+{
+    "require": {
+        "omnipay/mollie": "^3.2"
+    },
+    "autoload": {
+        "classmap": [
+            "vendor\/omnipay\/common\/src\/Omnipay",
+            "vendor\/guzzle\/guzzle\/src\/Guzzle"
+        ]
+    }
+}
