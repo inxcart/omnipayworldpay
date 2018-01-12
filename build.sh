@@ -11,7 +11,7 @@ rm build/ -rf
 # Composer install and scoping
 composer install --no-dev --prefer-dist
 mv vendor/ pre-scoper/
-php ./php-scoper.phar add-prefix -p ThirtyBeesMollie -n
+php-scoper add-prefix -p ThirtyBeesMollie -n
 
 # Cleanup
 mv build/pre-scoper/ vendor/
@@ -20,7 +20,6 @@ rm build/ -rf
 
 # Dump autoload
 composer -o dump-autoload
-
 
 FILES+=("logo.gif")
 FILES+=("logo.png")
