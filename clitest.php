@@ -5,9 +5,17 @@ require_once __DIR__.'/vendor/autoload.php';
 use ThirtyBeesMollie\Omnipay\Omnipay;
 
 // Setup payment gateway
+/** @var \ThirtyBeesMollie\Omnipay\Mollie\Gateway $gateway */
 $gateway = Omnipay::create('Mollie');
 $gateway->setApiKey('test_4RHxUvezu238WHrTVzaxMTH8vV35xq');
 
+try {
+    $response = $gateway->fetchPaymentMethods(['locale' => 'nl_NL'])->send();
+    var_dump($response->getPaymentMethods());
+    exit;
+} catch (Exception $e) {
+    exit;
+}
 
 // Send purchase request
 try {
