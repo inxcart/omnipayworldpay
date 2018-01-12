@@ -1,5 +1,3 @@
 vendor/
 composer.lock
 *omnipaymollie*.zip
-php-scoper.phar
-php-scoper.phar.pubkey
