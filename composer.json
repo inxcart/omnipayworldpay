@@ -1,6 +1,6 @@
 {
     "require": {
-        "omnipay/mollie": "^3.2"
+        "omnipay/worldpay": "~2.0"
     },
     "autoload": {
         "classmap": [

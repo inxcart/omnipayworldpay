@@ -12,129 +12,124 @@
  * obtain it through the world-wide-web, please send an email
  * to license@thirtybees.com so we can send you a copy immediately.
  *
- *  @author    thirty bees <modules@thirtybees.com>
- *  @copyright 2017-2018 thirty bees
- *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ * @author    thirty bees <modules@thirtybees.com>
+ * @copyright 2017-2018 thirty bees
+ * @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 
-use ThirtyBeesMollie\Omnipay\Omnipay;
+use ThirtyBeesWorldpay\Omnipay\Omnipay;
 
 if (!defined('_TB_VERSION_')) {
     exit;
 }
 
 /**
- * Class OmnipayMollieValidationModuleFrontController
+ * Class OmnipayWorldpayValidationModuleFrontController
  */
-class OmnipayMollieValidationModuleFrontController extends ModuleFrontController
+class OmnipayWorldpayValidationModuleFrontController extends ModuleFrontController
 {
-    /** @var bool $display_column_left */
-    public $display_column_left = false;
-    /** @var bool $display_column_right */
-    public $display_column_right = false;
-    /** @var OmnipayMollie $module */
+    /** @var OmnipayWorldpay $module */
     public $module;
 
     /**
-     * OmnipayMollieValidationModuleFrontController constructor.
-     *
+     * @throws PrestaShopDatabaseException
      * @throws PrestaShopException
      */
-    public function __construct()
+    public function initContent()
     {
-        parent::__construct();
-
-        $this->ssl = Tools::usingSecureMode();
-    }
-
-    /**
-     * Post process
-     *
-     * @return void
-     *
-     * @throws PrestaShopException
-     */
-    public function postProcess()
-    {
+        if (!$this->module->active || strtoupper($this->context->currency->iso_code) !== 'EUR') {
+            Tools::redirect($this->context->link->getPageLink('order', null, null, ['step' => 3]));
+        }
         $cart = $this->context->cart;
-        $cookie = new Cookie($this->module->name);
-        if ($cart->id_customer == 0
-            || $cart->id_address_delivery == 0
-            || $cart->id_address_invoice == 0
-            || !$this->module->active
-            || strtoupper($this->context->currency->iso_code) !== 'EUR'
-        ) {
-            Tools::redirect('index.php?controller=order&step=3');
+        if (!$cart->id_customer || !$cart->id_address_delivery || !$cart->id_address_invoice || !$this->module->active) {
+            Tools::redirect($this->context->link->getPageLink('order', null, null, ['step' => 3]));
         }
 
         $customer = new Customer($cart->id_customer);
         if (!Validate::isLoadedObject($customer)) {
-            Tools::redirect('index.php?controller=order&step=3');
+            Tools::redirect($this->context->link->getPageLink('order', null, null, ['step' => 3]));
         }
 
-        $orderProcess = Configuration::get('PS_ORDER_PROCESS_TYPE') ? 'order-opc' : 'order';
-        $this->context->smarty->assign([
-            'orderLink' => $this->context->link->getPageLink($orderProcess, true),
+        parent::initContent();
+
+        /** @var \ThirtyBeesWorldpay\Omnipay\Worldpay\Gateway $gateway */
+        $gateway = Omnipay::create(OmnipayWorldpay::GATEWAY_NAME);
+        foreach (array_keys($gateway->getDefaultParameters()) as $key) {
+            $gateway->{'set'.ucfirst($key)}(Configuration::get(OmnipayWorldpay::CREDENTIAL.$key));
+        }
+
+        $billingAddress = new Address($cart->id_address_invoice);
+        $shippingAddress = new Address($cart->id_address_delivery);
+
+        $card = new \ThirtyBeesWorldpay\Omnipay\Common\CreditCard([
+            'name'             => "{$customer->firstname} {$customer->lastname}",
+            'email'            => $customer->email,
+            'billingAddress1'  => $billingAddress->address1,
+            'billingAddress2'  => $billingAddress->address2,
+            'billingPostcode'  => $billingAddress->postcode,
+            'billingCity'      => $billingAddress->city,
+            'billingState'     => $billingAddress->id_state ? State::getNameById($billingAddress->id_state) : '',
+            'billingCountry'   => Country::getIsoById($billingAddress->id_country),
+            'billingPhone'     => $billingAddress->phone ?: $billingAddress->phone_mobile,
+            'shippingAddress1' => $shippingAddress->address1,
+            'shippingAddress2' => $shippingAddress->address2,
+            'shippingPostcode' => $shippingAddress->postcode,
+            'shippingCity'     => $shippingAddress->city,
+            'shippingState'    => $shippingAddress->id_state ? State::getNameById($shippingAddress->id_state) : '',
+            'shippingCountry'  => Country::getIsoById($shippingAddress->id_country),
+            'shippingPhone'    => $shippingAddress->phone ?: $shippingAddress->phone_mobile,
         ]);
 
-        if ((float) $cart->getOrderTotal() !== (float) $cookie->amount) {
-            Tools::redirect('index.php?controller=order&step=3');
-        }
+        /** @var \ThirtyBeesWorldpay\Omnipay\Worldpay\Message\PurchaseResponse $response */
+        $response = $gateway->purchase(
+            [
+                'token'         => Tools::getValue('token'),
+                'amount'        => number_format($this->context->cart->getOrderTotal(), 2),
+                'currency'      => strtoupper($this->context->currency->iso_code),
+                'description'   => $this->context->cart->id,
+                'transactionId' => $this->context->cart->id,
+                'name'          => 'test',
+                'card'          => $card,
 
-        /** @var Omnipay $gateway */
-        $gateway = Omnipay::create(OmnipayMollie::GATEWAY_NAME);
-        foreach (array_keys($gateway->getDefaultParameters()) as $key) {
-            $gateway->{'set'.ucfirst($key)}(Configuration::get(OmnipayMollie::CREDENTIAL.$key));
-        }
+            ]
+        )->send();
 
-        $params = Tools::getAllValues();
-        $params['transactionReference'] = $cookie->transaction_reference;
-        try {
-            /** @var \ThirtyBeesMollie\Omnipay\Mollie\Message\CompletePurchaseResponse $response */
-            $response = $gateway->completePurchase($params)->send();
-            if (!$response->isSuccessful()) {
-                $error = $this->module->l('An error occurred. Please contact us for more information.', 'validation');
-                $this->errors[] = $error;
-                $this->setTemplate('error.tpl');
+        if ($response->isSuccessful()) {
+            $this->module->validateOrder(
+                (int) $cart->id,
+                Configuration::get('PS_OS_PAYMENT'),
+                (float) $cart->getOrderTotal(),
+                $this->module->displayName,
+                null,
+                [],
+                (int) $cart->id_currency,
+                false,
+                $cart->secure_key
+            );
 
-                return;
-            }
-        } catch (Exception $e) {
-            if (!empty(_PS_MODE_DEV_)) {
-                $error = sprintf($this->module->l('An error occurred: %s', 'validation'), $e->getMessage());
-            } else {
-                $error = $this->module->l('An unknown error occurred. Please contact us for more information.', 'validation');
-            }
-            $this->errors[] = $error;
-            $this->setTemplate('error.tpl');
-
-            return;
-        }
-
-        $this->module->validateOrder(
-            (int) $cart->id,
-            Configuration::get('PS_OS_PAYMENT'),
-            (float) $cart->getOrderTotal(),
-            $this->module->displayName,
-            null,
-            [],
-            (int) $cart->id_currency,
-            false,
-            $cart->secure_key
-        );
-
-        /**
-         * If the order has been validated we try to retrieve it
-         */
-        $idOrder = Order::getOrderByCartId((int) $cart->id);
-
-        if ($idOrder) {
             /**
-             * The order has been placed so we redirect the customer on the confirmation page.
+             * If the order has been validated we try to retrieve it
              */
-            Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id
-                .'&id_module='.$this->module->id.'&id_order='.$idOrder.'&key='.$customer->secure_key);
+            $idOrder = Order::getOrderByCartId((int) $cart->id);
+
+            if ($idOrder) {
+                /**
+                 * The order has been placed so we redirect the customer on the confirmation page.
+                 */
+                Tools::redirect('index.php?controller=order-confirmation&id_cart='.$cart->id
+                    .'&id_module='.$this->module->id.'&id_order='.$idOrder.'&key='.$customer->secure_key);
+            }
         } else {
+            if (_PS_MODE_DEV_) {
+                $this->context->controller->errors[] = $response->getMessage();
+            } else {
+                $this->context->controller->errors[] = $this->module->l('An unknown error occurred.', 'payment');
+            }
+
+            $this->context->smarty->assign([
+                'orderLink' => $this->context->link->getPageLink('order', null, null, ['step' => 3]),
+            ]);
+
             /**
              * An error occurred and is shown on a new page.
              */

@@ -11,7 +11,7 @@ rm build/ -rf
 # Composer install and scoping
 composer install --no-dev --prefer-dist
 mv vendor/ pre-scoper/
-php ./php-scoper.phar add-prefix -p ThirtyBeesMollie -n
+php ./php-scoper.phar add-prefix -p ThirtyBeesWorldpay -n
 
 # Cleanup
 mv build/pre-scoper/ vendor/

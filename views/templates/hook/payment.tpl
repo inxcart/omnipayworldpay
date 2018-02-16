@@ -1,20 +1,39 @@
 {if !empty($credit_card)}
-
+  <form action="{$link->getModuleLink('omnipayworldpay', 'validation', [], true)|escape:'html'}"
+        id="worldpayForm"
+        method="post"
+  >
+    <div id="worldpaySection"></div>
+    <div>
+      <button type="submit"
+              class="btn btn-default btn-lg"
+              value="{l s='Place Order' mod='omnipayworldpay'}"
+              onclick="Worldpay.submitTemplateForm()"
+      >
+        {l s='Place Order' mod='omnipayworldpay'} <i class="icon icon-chevron-right"></i>
+      </button>
+    </div>
+  </form>
+  <script src="https://cdn.worldpay.com/v1/worldpay.js"></script>
+  <script type='text/javascript'>
+    (function() {
+      Worldpay.useTemplateForm({
+        clientKey:'{$clientKey|escape:'javascript'}',
+        form: 'worldpayForm',
+        paymentSection: 'worldpaySection',
+        display: 'inline',
+        reusable: true,
+        callback: function(obj) {
+          if (obj && obj.token) {
+            var _el = document.createElement('input');
+            _el.value = obj.token;
+            _el.type = 'hidden';
+            _el.name = 'token';
+            document.getElementById('worldpayForm').appendChild(_el);
+            document.getElementById('worldpayForm').submit();
+          }
+        }
+      });
+    }());
+  </script>
 {/if}
-{foreach $payment_methods as $payment_method}
-  <p class="payment_module omnipay_{$payment_method['id']|escape:'htmlall':'UTF-8'}_payment_button">
-    <a id="omnipay_{$payment_method['id']|escape:'htmlall':'UTF-8'}_payment_link"
-       href="{$link->getModuleLink('omnipaymollie', 'payment', ['method' => $payment_method['id']], true)|escape:'htmlall':'UTF-8'}"
-       title="{l s='Pay with' mod='stripe'} {$payment_method['name'][$lang_id]|escape:'htmlall':'UTF-8'}"
-    >
-      {if !empty($payment_method['image'])}
-        <img src="{$payment_method['image']|escape:'htmlall':'UTF-8'}"
-             alt="{l s='Pay with' mod='omnipaymollie'} {$payment_method['name'][$lang_id]|escape:'htmlall':'UTF-8'}"
-             width="64"
-             height="64"
-        />
-      {/if}
-      {l s='Pay with' mod='omnipaymollie'} {$payment_method['name'][$lang_id]|escape:'htmlall':'UTF-8'}
-    </a>
-  </p>
-{/foreach}

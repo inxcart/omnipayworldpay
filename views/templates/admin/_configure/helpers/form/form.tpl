@@ -22,7 +22,7 @@
   {if $input.type === 'payment_methods'}
     <section class="filter_panel">
       <header class="clearfix">
-        <span class="badge badge-info">{l s='Total available' mod='omnipaymollie'}: {$input.payment_methods|count}</span>
+        <span class="badge badge-info">{l s='Total available' mod='OmnipayWorldpay'}: {$input.payment_methods|count}</span>
         <form action="{$moduleUrl|escape:'htmlall':'UTF-8'}"
               method="post"
               id="refresh_payments_{$input.name|escape:'htmlall':'UTF-8'}"
@@ -32,10 +32,10 @@
         <button
                 type="submit"
                 form="refresh_payments_{$input.name|escape:'htmlall':'UTF-8'}"
-                value="{l s='Refresh payment methods' mod='omnipaymollie'}"
+                value="{l s='Refresh payment methods' mod='OmnipayWorldpay'}"
                 class="btn btn-sm btn-default pull-right"
         >
-          {l s='Refresh payment methods' mod='omnipaymollie'} <i class="icon icon-refresh"></i>
+          {l s='Refresh payment methods' mod='OmnipayWorldpay'} <i class="icon icon-refresh"></i>
         </button>
       </header>
       <section class="filter_list">
@@ -52,14 +52,14 @@
                      value="1"
               >
               <label for="meta_enabled_name_on">
-                <p>{l s='On' mod='omnipaymollie'}</p>
+                <p>{l s='On' mod='OmnipayWorldpay'}</p>
               </label>
               <input type="radio" id="meta_enabled_name_off"
                      name="meta_enabled_name"
                      value="0"
               >
               <label for="meta_enabled_name_off">
-                <p>{l s='Off' mod='omnipaymollie'}</p>
+                <p>{l s='Off' mod='OmnipayWorldpay'}</p>
               </label>
               <a class="slide-button btn"></a>
             </span>

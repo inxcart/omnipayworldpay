@@ -18,7 +18,7 @@
  *
  */
 
-use ThirtyBeesMollie\Omnipay\Omnipay;
+use ThirtyBeesWorldpay\Omnipay\Omnipay;
 
 require_once __DIR__.'/vendor/autoload.php';
 
@@ -27,13 +27,13 @@ if (!defined('_TB_VERSION_')) {
 }
 
 /**
- * Class OmnipayMollie
+ * Class OmnipayWorldpay
  */
-class OmnipayMollie extends PaymentModule
+class OmnipayWorldpay extends PaymentModule
 {
-    const CREDENTIAL = 'OMNIPAY_MOLLIE_CRED';
+    const CREDENTIAL = 'OMNIPAY_WORLDPAY_CRED';
     const PAYMENT_METHODS = 'OMNIPAY_PAYMENT_METHODS';
-    const GATEWAY_NAME = 'Mollie';
+    const GATEWAY_NAME = 'WorldPay_Json';
 
     /** @var string $moduleUrl */
     public $moduleUrl;
@@ -44,13 +44,13 @@ class OmnipayMollie extends PaymentModule
     ];
 
     /**
-     * OmnipayMollie constructor.
+     * OmnipayWorldpay constructor.
      *
      * @throws PrestaShopException
      */
     public function __construct()
     {
-        $this->name = 'omnipaymollie';
+        $this->name = 'omnipayworldpay';
         $this->tab = 'payments_gateways';
         $this->version = '1.0.0';
         $this->author = 'thirty bees';
@@ -74,8 +74,8 @@ class OmnipayMollie extends PaymentModule
                 ]);
         }
 
-        $this->displayName = $this->l('Mollie');
-        $this->description = $this->l('Mollie payment gateway');
+        $this->displayName = $this->l('Worldpay');
+        $this->description = $this->l('Worldpay payment gateway');
     }
 
     /**
@@ -108,11 +108,11 @@ class OmnipayMollie extends PaymentModule
      */
     public function getContent()
     {
+        $this->context->smarty->assign([
+            'moduleUrl'   =>  $this->moduleUrl,
+        ]);
+
         $this->postProcess();
-
-        $this->refreshPaymentMethods();
-
-        $this->context->controller->addCSS($this->_path.'views/css/list.css', 'all');
 
         return $this->renderMainForm();
     }
@@ -126,14 +126,16 @@ class OmnipayMollie extends PaymentModule
      */
     public function hookDisplayPayment()
     {
-        if (!$this->active
-            || strtoupper($this->context->currency->iso_code) !== 'EUR'
-        ) {
+        if (!$this->active || strtoupper($this->context->currency->iso_code) !== 'EUR') {
             return '';
         }
 
         $this->context->smarty->assign([
             'payment_methods' => $this->getPaymentMethods(),
+            'credit_card'     => array_sum(array_map(function ($key) {
+                    return Configuration::get(static::CREDENTIAL.$key) ? 1 : 0;
+                }, array_keys(Omnipay::create(static::GATEWAY_NAME)->getDefaultParameters()))) === 3,
+            'clientKey'       => Configuration::get(static::CREDENTIAL.'clientKey'),
         ]);
 
         return $this->display(__FILE__, 'payment.tpl');
@@ -162,7 +164,7 @@ class OmnipayMollie extends PaymentModule
         $currency = new Currency($order->id_currency);
 
         if (isset($order->reference) && $order->reference) {
-            $totalToPay = (float) $order->getTotalPaid($currency);
+            $totalToPay = $order->total_paid_tax_incl;
             $reference = $order->reference;
         } else {
             $totalToPay = $order->total_paid_tax_incl;
@@ -213,12 +215,12 @@ class OmnipayMollie extends PaymentModule
             'fields_value' => $this->getConfigFieldsValues(),
         ];
 
-        return $helper->generateForm(
-            array_merge(
-                [$this->getApiForm()],
-                [$this->getPaymentMethodsForm()]
-            )
-        );
+        $forms = [$this->getApiForm()];
+        if ($this->getPaymentMethods()) {
+            $forms = array_merge($forms, [$this->getPaymentMethodsForm()]);
+        }
+
+        return $helper->generateForm($forms);
     }
 
     /**
@@ -233,26 +235,6 @@ class OmnipayMollie extends PaymentModule
                     'icon'  => 'icon-puzzle',
                 ],
                 'input'  => [
-//                    [
-//                        'type'     => 'select',
-//                        'label'    => $this->l('Module'),
-//                        'desc'     => $this->l('Choose a module'),
-//                        'name'     => static::MODULE,
-//                        'required' => true,
-//                        'class'    => 'fixed-width-xxl',
-//                        'options'  => [
-//                            'query' => $modules,
-//                            'id'    => 'name',
-//                            'name'  => 'name',
-//                        ],
-//                    ],
-//                    [
-//                        'type'        => 'text',
-//                        'label'       => $this->l('Force version'),
-//                        'name'        => static::VERSION,
-//                        'class'       => 'fixed-width-xxl',
-//                        'placeholder' => '1.0.0',
-//                    ],
                 ],
                 'submit' => [
                     'title' => $this->l('Save'),
@@ -361,7 +343,7 @@ class OmnipayMollie extends PaymentModule
         ];
 
         $dynamicValues = [];
-        foreach (Omnipay::create('Mollie')->getDefaultParameters() as $key => $default) {
+        foreach (Omnipay::create(static::GATEWAY_NAME)->getDefaultParameters() as $key => $default) {
             $dynamicValues[static::CREDENTIAL.$key] = Configuration::get(static::CREDENTIAL.$key);
         }
 
@@ -389,57 +371,10 @@ class OmnipayMollie extends PaymentModule
     }
 
     /**
-     * @return array|mixed|string
+     * @return array|false
      */
     protected function getPaymentMethods()
     {
-        try {
-            $paymentMethods = Configuration::get(static::PAYMENT_METHODS);
-        } catch (PrestaShopException $e) {
-            return [];
-        }
-
-        if (!$paymentMethods) {
-            return [];
-        }
-
-        $paymentMethods = json_decode($paymentMethods, true);
-        if (!is_array($paymentMethods)) {
-            return [];
-        }
-
-        return $paymentMethods;
-    }
-
-    /**
-     * Refresh payment methods
-     *
-     * @throws PrestaShopException
-     */
-    protected function refreshPaymentMethods()
-    {
-        $gateway = Omnipay::create(static::GATEWAY_NAME);
-        foreach (array_keys($gateway->getDefaultParameters()) as $key) {
-            $gateway->{'set'.ucfirst($key)}(Configuration::get(static::CREDENTIAL.$key));
-        }
-
-        try {
-            $paymentMethods = [];
-            foreach ($gateway->fetchPaymentMethods()->send()->getPaymentMethods() as $paymentMethod) {
-                /** @var \ThirtyBeesMollie\Omnipay\Common\PaymentMethod $paymentMethod */
-                $newMethod = [
-                    'id'   => $paymentMethod->getId(),
-                    'name' => [],
-                ];
-                foreach (Language::getLanguages() as $language) {
-                    $newMethod['name'][(int) $language['id_lang']] = $paymentMethod->getName();
-                }
-                $paymentMethods[$newMethod['id']] = $newMethod;
-            }
-
-            Configuration::updateValue(static::PAYMENT_METHODS, json_encode($paymentMethods));
-        } catch (Exception $e) {
-            return;
-        }
+        return false;
     }
 }

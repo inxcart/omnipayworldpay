@@ -40,11 +40,15 @@ return [
             // Change the content here. vendor = pre-scoper at this time
             if (in_array($filePath, [
                 __DIR__.'/pre-scoper/omnipay/common/src/Omnipay/Common/Helper.php',
-                __DIR__.'/pre-scoper/omnipay/mollie/src/Gateway.php',
+                __DIR__.'/pre-scoper/omnipay/worldpay/src/Gateway.php',
+                __DIR__.'/pre-scoper/omnipay/worldpay/src/JsonGateway.php',
+                __DIR__.'/pre-scoper/omnipay/worldpay/src/Message/JsonAbstractRequest.php',
+                __DIR__.'/pre-scoper/omnipay/worldpay/src/Message/JsonAuthorizeRequest.php',
+                __DIR__.'/pre-scoper/omnipay/worldpay/src/Message/JsonPurchaseRequest.php',
             ])) {
                 $content = preg_replace(
                     preg_quote("'\\\\Omnipay\\\\'"),
-                    "\\\\\\\\ThirtyBeesMollie\\\\\\\\Omnipay\\\\\\\\",
+                    "\\\\\\\\ThirtyBeesWorldpay\\\\\\\\Omnipay\\\\\\\\",
                     $content
                 );
 
@@ -57,7 +61,7 @@ return [
             ])) {
                 $content = preg_replace(
                     preg_quote("'Guzzle\\\\'"),
-                    "ThirtyBeesMollie\\\\\\\\Guzzle\\\\\\\\",
+                    "ThirtyBeesWorldpay\\\\\\\\Guzzle\\\\\\\\",
                     $content
                 );
 
