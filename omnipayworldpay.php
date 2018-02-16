@@ -126,7 +126,7 @@ class OmnipayWorldpay extends PaymentModule
      */
     public function hookDisplayPayment()
     {
-        if (!$this->active || strtoupper($this->context->currency->iso_code) !== 'EUR') {
+        if (!$this->active) {
             return '';
         }
 
@@ -153,9 +153,7 @@ class OmnipayWorldpay extends PaymentModule
      */
     public function hookPaymentReturn($params)
     {
-        if (!$this->active
-            || strtoupper($this->context->currency->iso_code) !== 'EUR'
-        ) {
+        if (!$this->active) {
             return '';
         }
 
